@@ -1,0 +1,101 @@
+<html>
+
+<head>
+  <!-- Loading in TensorFlow.js version 0.11.2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@0.13.0"> </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.2/Chart.bundle.min.js"> </script>
+</head>
+
+  <body>
+    x: <input type="text" id="x" />
+    y: <input type="text" id="y" />
+
+    <input type="button" id="append" value="submit">
+
+    <div style="padding:50px">
+      <canvas id="myChart" width="600" height="300"></canvas>
+    </div>
+
+    <script>
+      var xs = [] // starts empty, to be populated with .push
+      var ys = [] // starts empty, to be populated with .push
+      var bestfit = [] // to be populated by tf.js
+
+      const model = tf.sequential();
+      // const optimizer = tf.train.adam(0.01);
+    model.add(tf.layers.leakyReLU({units: 320, inputShape: [1]})); // layer 1
+    model.add(tf.layers.leakyReLU({units: 320, inputShape: [320]})); // layer 2
+    model.add(tf.layers.dense({units: 1, inputShape: [320]})); // output layer
+    model.compile({optimizer: 'sgd', loss: 'binaryCrossentropy', lr: 0.1}); // compile with params
+
+
+      // document.getElementById('x').value = 1; // create a starting value for our x
+
+      const req = new Request('http://api.carloswu.com/api/candlestick/XRPETH/1d/50');
+
+        fetch(req).then(function(response) {
+          return response.json();
+        }).then(data => {
+          const newArr = [];
+          data = JSON.parse(data);
+          data.forEach(element => {
+            let dates = new Date(element[6]);
+            xs.push(dates);
+            ys.push(+element[4]);
+            
+          });
+
+        // var x = document.getElementById("x").value; // grab the current value for x
+        // var y = document.getElementById("y").value; // grab the current value for y
+        // xs.push(x) // append that value to the xs
+        // ys.push(y) // append that value to the ys
+        // document.getElementById('x').value = parseInt(x) + 1; // add 1 to the x automatically
+        
+        console.log(xs, ys)
+        // xs = [0.01069700, 0.17209000, 0.00000953];
+        // ys = [1535672218632, 1535672217557, 1535672218506];
+
+
+        // Train the model...then:
+        model.fit(tf.tensor(xs), tf.tensor(ys), {
+          epochs: 500
+        }).then(() => {
+          bestfit = model.predict(tf.tensor(xs, [xs.length, 1])).dataSync(); // create best-fit line from xs data
+          console.log(bestfit);
+          var ctx = document.getElementById("myChart").getContext('2d'); // begin chart
+          // Chart data and settings:
+          var myChart = new Chart(ctx, {
+            type: 'line',
+            options: {
+              scales: {
+                yAxes: [{
+                  ticks: {
+                    beginAtZero: true
+                  }
+                }]
+              }
+            },
+            data: {
+              labels: xs,
+              datasets: [{
+                label: 'Original Data',
+                data: ys,
+                borderWidth: 1,
+              }, {
+                label: 'Best Fit line',
+                data: bestfit,
+                borderWidth: 1,
+                borderColor: '#FF0000',
+                backgroundColor: 'rgba(1,1,1,0)'
+              }, ]
+            },
+          });
+        });
+          
+        })
+      // the append id is given to our submit button, this will be called
+      
+    </script>
+  </body>
+
+</html>
